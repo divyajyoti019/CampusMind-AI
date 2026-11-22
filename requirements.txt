@@ -1,0 +1,18 @@
+# Runtime and UI
+streamlit==1.63.0
+google-genai==2.33.0
+python-dotenv==1.2.4
+
+# RAG: PDF extraction, local embeddings, and vector search
+PyMuPDF==1.27.2
+sentence-transformers==6.3.0
+faiss-cpu==1.16.0
+
+# Database query validation and analytics
+sqlglot==30.33.0
+pandas==2.3.3
+numpy==2.2.6
+plotly==6.5.1
+
+# Test suite and prompt evaluation
+pytest==9.2.0

@@ -1,4 +1,4 @@
-"""SentenceTransformer embedding and persisted FAISS index helpers."""
+"""Local MiniLM embeddings (FastEmbed or SentenceTransformer) and FAISS index helpers."""
 
 from __future__ import annotations
 
@@ -19,12 +19,47 @@ class TextEncoder(Protocol):
     def encode(self, sentences: list[str], **kwargs: Any) -> Any: ...
 
 
+class FastEmbedEncoder:
+    """ONNX all-MiniLM-L6-v2 via FastEmbed, with a SentenceTransformer-like API.
+
+    FastEmbed runs the same MiniLM model without PyTorch, which keeps the
+    install small enough for free hosting such as Streamlit Community Cloud.
+    """
+
+    def __init__(self, model_name: str = DEFAULT_MODEL_NAME) -> None:
+        from fastembed import TextEmbedding
+
+        if "/" not in model_name:
+            model_name = f"sentence-transformers/{model_name}"
+        self._model = TextEmbedding(model_name)
+
+    def encode(
+        self,
+        sentences: list[str],
+        *,
+        normalize_embeddings: bool = True,
+        **_: Any,
+    ) -> np.ndarray:
+        vectors = np.asarray(list(self._model.embed(list(sentences))), dtype=np.float32)
+        if normalize_embeddings:
+            norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+            vectors = vectors / np.clip(norms, 1e-12, None)
+        return vectors
+
+
 @lru_cache(maxsize=2)
 def load_embedding_model(model_name: str = DEFAULT_MODEL_NAME) -> TextEncoder:
-    """Load and cache a local SentenceTransformer model on first use."""
-    from sentence_transformers import SentenceTransformer
+    """Load and cache the embedding model on first use.
 
-    return SentenceTransformer(model_name)
+    Prefers FastEmbed (ONNX, no PyTorch); falls back to sentence-transformers
+    when FastEmbed is not installed.
+    """
+    try:
+        return FastEmbedEncoder(model_name)
+    except ImportError:
+        from sentence_transformers import SentenceTransformer
+
+        return SentenceTransformer(model_name)
 
 
 def embed_texts(

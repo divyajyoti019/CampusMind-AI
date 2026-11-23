@@ -100,6 +100,14 @@ def _direct_tables(select: exp.Select) -> list[exp.Table]:
     return result
 
 
+def _is_counted(node: exp.Expression) -> bool:
+    """True when a column or star is the direct argument of COUNT/COUNT(DISTINCT)."""
+    parent = node.parent
+    if isinstance(parent, exp.Distinct):
+        parent = parent.parent
+    return isinstance(parent, exp.Count)
+
+
 def enforce_student_query_scope(sql: str, student_id: int | None = None) -> str:
     """Limit student SQL to aggregates or the authenticated student's records.
 
@@ -166,17 +174,22 @@ def enforce_student_query_scope(sql: str, student_id: int | None = None) -> str:
             )
 
         for projection in select.expressions:
+            if any(True for _ in projection.find_all(exp.GroupConcat)):
+                raise ValueError(
+                    "Student aggregate queries cannot concatenate individual values"
+                )
+            for node in projection.walk():
+                if isinstance(node, exp.Star) and not _is_counted(node):
+                    raise ValueError(
+                        "Student aggregate queries cannot select all columns"
+                    )
             for column in projection.find_all(exp.Column):
                 if column.name.casefold() not in STUDENT_PRIVATE_COLUMNS:
                     continue
-                ancestor = column.parent
-                inside_aggregate = False
-                while ancestor is not None and ancestor is not projection:
-                    if isinstance(ancestor, exp.AggFunc):
-                        inside_aggregate = True
-                        break
-                    ancestor = ancestor.parent
-                if not inside_aggregate:
+                # A personal identifier may only be counted. Any other use,
+                # even inside MAX/MIN or a CASE within an aggregate, can reveal
+                # or single out one student's record.
+                if not _is_counted(column):
                     raise ValueError(
                         "Student aggregate queries cannot return personal identifiers"
                     )

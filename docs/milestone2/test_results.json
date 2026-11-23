@@ -1,0 +1,258 @@
+{
+ "rows": [
+  {
+   "id": "T01",
+   "type": "Normal",
+   "module": "Intent router",
+   "input": "[Faculty / Administrator] What is the university minimum attendance requirement?",
+   "expected": "Intents: rag",
+   "actual": "Intents: rag",
+   "result": "Pass"
+  },
+  {
+   "id": "T02",
+   "type": "Normal",
+   "module": "Intent router",
+   "input": "[Faculty / Administrator] Show students with attendance below 75%.",
+   "expected": "Intents: sql",
+   "actual": "Intents: sql",
+   "result": "Pass"
+  },
+  {
+   "id": "T03",
+   "type": "Normal",
+   "module": "Intent router",
+   "input": "[Faculty / Administrator] Show students below 75% attendance and explain the university attendance policy.",
+   "expected": "Intents: rag + sql + analytics",
+   "actual": "Intents: rag + sql + analytics",
+   "result": "Pass"
+  },
+  {
+   "id": "T04",
+   "type": "Normal",
+   "module": "Intent router",
+   "input": "[Faculty / Administrator] What are the tuition payment and late-fee rules?",
+   "expected": "Intents: rag",
+   "actual": "Intents: rag",
+   "result": "Pass"
+  },
+  {
+   "id": "T05",
+   "type": "Edge",
+   "module": "Intent router (role check)",
+   "input": "[Student] Show students with attendance below 75%.",
+   "expected": "SQL blocked; access message shown",
+   "actual": "Intents: none; blocked: sql; message shown: yes",
+   "result": "Pass"
+  },
+  {
+   "id": "T06",
+   "type": "Edge",
+   "module": "Intent router (role check)",
+   "input": "[Student] What is the average CGPA by department?",
+   "expected": "SQL allowed (aggregate scope)",
+   "actual": "Intents: sql + analytics; scope: aggregate; blocked: none",
+   "result": "Pass"
+  },
+  {
+   "id": "T07",
+   "type": "Normal",
+   "module": "SQL guardrail + SQLite",
+   "input": "SELECT dept_name, COUNT(student_id) ... GROUP BY department",
+   "expected": "Accepted; 5 rows (20 students each)",
+   "actual": "Accepted; 5 rows; counts = [20]",
+   "result": "Pass"
+  },
+  {
+   "id": "T08",
+   "type": "Normal",
+   "module": "SQL guardrail + SQLite",
+   "input": "SELECT COUNT(DISTINCT student_id) FROM attendance WHERE attendance_pct < 75",
+   "expected": "Accepted; 25",
+   "actual": "Accepted; result = 25",
+   "result": "Pass"
+  },
+  {
+   "id": "T09",
+   "type": "Invalid",
+   "module": "SQL guardrail",
+   "input": "DROP TABLE students",
+   "expected": "Rejected before execution",
+   "actual": "Rejected: Only SELECT statements are allowed",
+   "result": "Pass"
+  },
+  {
+   "id": "T10",
+   "type": "Invalid",
+   "module": "SQL guardrail",
+   "input": "SELECT student_id FROM students; DROP TABLE students",
+   "expected": "Rejected before execution",
+   "actual": "Rejected: Only a single SQL statement is allowed",
+   "result": "Pass"
+  },
+  {
+   "id": "T11",
+   "type": "Invalid",
+   "module": "SQL guardrail",
+   "input": "SELECT name FROM sqlite_master WHERE type = 'table'",
+   "expected": "Rejected before execution",
+   "actual": "Rejected: Table is not allowed: sqlite_master",
+   "result": "Pass"
+  },
+  {
+   "id": "T12",
+   "type": "Edge",
+   "module": "SQL guardrail (row cap)",
+   "input": "SELECT roll_no, full_name FROM students LIMIT 5000",
+   "expected": "LIMIT capped at 100",
+   "actual": "Rewritten to '...LIMIT 100'; 100 rows returned",
+   "result": "Pass"
+  },
+  {
+   "id": "T13",
+   "type": "Invalid",
+   "module": "Student privacy check",
+   "input": "[Student] SELECT GROUP_CONCAT(full_name || ' ' || cgpa) AS x FROM students",
+   "expected": "Rejected (would list names + CGPA)",
+   "actual": "Rejected: Student aggregate queries cannot concatenate individual values",
+   "result": "Pass"
+  },
+  {
+   "id": "T14",
+   "type": "Invalid",
+   "module": "Student privacy check",
+   "input": "[Student] SELECT MAX(CASE WHEN full_name='Aarav Sharma' THEN cgpa END) FROM students",
+   "expected": "Rejected (singles out one student)",
+   "actual": "Rejected: Student aggregate queries cannot return personal identifiers",
+   "result": "Pass"
+  },
+  {
+   "id": "T15",
+   "type": "Edge",
+   "module": "Student privacy check",
+   "input": "[Student] SELECT dept_name, ROUND(AVG(cgpa),2) ... GROUP BY department",
+   "expected": "Accepted (aggregate only)",
+   "actual": "Accepted; 5 rows, e.g. Business Administration = 7.82",
+   "result": "Pass"
+  },
+  {
+   "id": "T16",
+   "type": "Normal",
+   "module": "Policy source check (handbook)",
+   "input": "How does medical condonation work for attendance?",
+   "expected": "Page 1 contains: 65%, seven calendar days, Dean (Academic Affairs)",
+   "actual": "Found 3/3 facts on page 1",
+   "result": "Pass"
+  },
+  {
+   "id": "T17",
+   "type": "Normal",
+   "module": "Policy source check (handbook)",
+   "input": "What are the tuition payment and late-fee rules?",
+   "expected": "Page 3 contains: 10th calendar day, INR 100, INR 1,500",
+   "actual": "Found 3/3 facts on page 3",
+   "result": "Pass"
+  },
+  {
+   "id": "T18",
+   "type": "Edge",
+   "module": "RAG citation guardrail",
+   "input": "Model reply citing Page 9 when only Page 1 was retrieved",
+   "expected": "Reply rejected -> fixed refusal message",
+   "actual": "Rejected -> refusal shown",
+   "result": "Pass"
+  },
+  {
+   "id": "T19",
+   "type": "Invalid",
+   "module": "RAG citation guardrail",
+   "input": "Model reply with no citation",
+   "expected": "Reply rejected -> fixed refusal message",
+   "actual": "Rejected -> refusal shown",
+   "result": "Pass"
+  },
+  {
+   "id": "T20",
+   "type": "Normal",
+   "module": "RAG citation guardrail",
+   "input": "Model reply citing the retrieved Page 1",
+   "expected": "Reply accepted",
+   "actual": "Accepted",
+   "result": "Pass"
+  },
+  {
+   "id": "T21",
+   "type": "Normal",
+   "module": "Analytics KPIs",
+   "input": "Compute dashboard KPIs from the sample database",
+   "expected": "100 students; 25 below 75%",
+   "actual": "100 students; avg attendance 82.69%; avg score 74.41%; 25 below 75%",
+   "result": "Pass"
+  },
+  {
+   "id": "T22",
+   "type": "Edge",
+   "module": "Analytics number guardrail",
+   "input": "Summary text: \"Average attendance is 82.69% and rose 12% since last year.\"",
+   "expected": "Rejected (12 is not in the computed statistics)",
+   "actual": "Rejected: unsupported numeric value",
+   "result": "Pass"
+  },
+  {
+   "id": "T23",
+   "type": "Normal",
+   "module": "Analytics number guardrail",
+   "input": "Summary text: \"25 students are below the threshold and average attendance is 82.69%.\"",
+   "expected": "Accepted (all numbers come from the data)",
+   "actual": "Accepted",
+   "result": "Pass"
+  },
+  {
+   "id": "T24",
+   "type": "Edge",
+   "module": "Intent router (paraphrase)",
+   "input": "[Faculty / Administrator] Show me the exam rules for arriving late.",
+   "expected": "Intents: rag",
+   "actual": "Intents: rag + sql + analytics",
+   "result": "Fail"
+  },
+  {
+   "id": "T25",
+   "type": "Edge",
+   "module": "Intent router (paraphrase)",
+   "input": "[Faculty / Administrator] Which department has the lowest attendance?",
+   "expected": "Intents: sql + analytics",
+   "actual": "Intents: rag",
+   "result": "Fail"
+  }
+ ],
+ "kpis": {
+  "total_students": 100,
+  "overall_avg_attendance_pct": 82.69,
+  "overall_avg_score_pct": 74.41,
+  "students_below_attendance_threshold": 25
+ },
+ "correlation": 0.391,
+ "dept": [
+  {
+   "department": "Business Administration",
+   "average_attendance_pct": 81.18
+  },
+  {
+   "department": "Civil Engineering",
+   "average_attendance_pct": 84.26
+  },
+  {
+   "department": "Computer Science and Engineering",
+   "average_attendance_pct": 83.73
+  },
+  {
+   "department": "Electronics and Communication",
+   "average_attendance_pct": 81.97
+  },
+  {
+   "department": "Mechanical Engineering",
+   "average_attendance_pct": 82.58
+  }
+ ]
+}

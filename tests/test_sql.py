@@ -248,3 +248,35 @@ def test_execution_error_gets_one_correction_attempt(sample_db, monkeypatch) -> 
     assert result["dataframe"].iloc[0]["student_count"] == 100
     assert execution_count == 2
     assert client.calls == 2
+
+
+STUDENT_PRIVACY_BYPASSES = [
+    "SELECT MAX(email) AS e FROM students",
+    "SELECT GROUP_CONCAT(full_name || ' ' || cgpa, '; ') AS x FROM students",
+    "SELECT MAX(CASE WHEN full_name = 'Aarav Sharma' THEN cgpa END) AS cgpa FROM students",
+    "SELECT GROUP_CONCAT(cgpa) AS all_cgpa FROM students",
+    "SELECT COUNT(*) AS n, * FROM students",
+]
+
+
+@pytest.mark.parametrize("generated_sql", STUDENT_PRIVACY_BYPASSES)
+def test_student_aggregate_cannot_leak_individual_records(
+    sample_db, generated_sql: str
+) -> None:
+    client = QueueGemini([generated_sql, generated_sql])
+    result = TextToSQLAssistant(db_path=sample_db, client=client).query(
+        "Tell me about students", role="Student"
+    )
+    assert result["error"]
+    assert result["dataframe"].empty
+
+
+def test_student_can_count_distinct_identifiers(sample_db) -> None:
+    client = QueueGemini(
+        ["SELECT COUNT(DISTINCT student_id) AS n FROM attendance WHERE attendance_pct < 75"]
+    )
+    result = TextToSQLAssistant(db_path=sample_db, client=client).query(
+        "How many students are below 75%?", role="Student"
+    )
+    assert result["error"] is None
+    assert result["dataframe"].iloc[0]["n"] == 25

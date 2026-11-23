@@ -5,7 +5,8 @@ python-dotenv==1.2.4
 
 # RAG: PDF extraction, local embeddings, and vector search
 PyMuPDF==1.27.2
-sentence-transformers==6.3.0
+# all-MiniLM-L6-v2 via ONNX (no PyTorch), small enough for free hosting
+fastembed==0.9.1
 faiss-cpu==1.16.0
 
 # Database query validation and analytics

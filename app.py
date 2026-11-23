@@ -53,6 +53,22 @@ def get_rag_assistant() -> RAGAssistant:
     return RAGAssistant()
 
 
+def _index_ready() -> bool:
+    return settings.faiss_index_path.is_file() and settings.chunk_metadata_path.is_file()
+
+
+@st.cache_resource(show_spinner="Preparing the policy knowledge base (first start only)...")
+def _auto_build_index() -> str | None:
+    """Build the FAISS index once per server if it is missing (e.g. fresh deploy)."""
+    if _index_ready() or not any(settings.documents_dir.glob("*.pdf")):
+        return None
+    try:
+        get_rag_assistant().ingest_documents(settings.documents_dir)
+    except Exception as exc:  # surfaced in the sidebar; manual re-index still works
+        return f"Automatic indexing failed: {exc}"
+    return None
+
+
 @st.cache_resource
 def get_sql_assistant() -> TextToSQLAssistant:
     return TextToSQLAssistant()
@@ -125,8 +141,10 @@ def _render_sidebar() -> tuple[str, str | None]:
                     st.success(f"Indexed {count:,} text chunk(s).")
                 except Exception as exc:
                     st.error(f"Indexing failed: {exc}")
-        ready = settings.faiss_index_path.is_file() and settings.chunk_metadata_path.is_file()
-        st.caption("Index ready" if ready else "Index not built yet")
+        index_error = _auto_build_index()
+        if index_error:
+            st.warning(index_error)
+        st.caption("Index ready" if _index_ready() else "Index not built yet")
 
         st.divider()
         st.subheader("Try a sample prompt")

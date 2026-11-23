@@ -101,6 +101,15 @@ streamlit run app.py
 
 Open **http://localhost:8501** in your browser. Streamlit prints the local address in the terminal as well. The GitHub repository stores the project source; it does not itself host a running app.
 
+### 5. (Optional) Host it on Streamlit Community Cloud
+
+1. Sign in at [share.streamlit.io](https://share.streamlit.io) with GitHub and click **Create app**.
+2. Choose this repository, the branch, and `app.py` as the main file. Under **Advanced settings**, pick Python 3.12.
+3. In **Secrets**, add `GEMINI_API_KEY = "your_real_api_key"` (and optionally `GEMINI_MODEL`).
+4. Deploy. On the first start the app downloads the MiniLM embedding model and builds the policy index automatically; this takes about a minute.
+
+Anyone with the app link uses your Gemini key, so set a usage limit or budget alert on it.
+
 ## How to use and manage the app
 
 ### Assistant and role selector
@@ -120,7 +129,7 @@ The sample database is synthetic and contains 5 departments, 20 courses, and 100
 2. Click **Re-index knowledge base** after adding or replacing documents.
 3. Ask policy questions in the assistant. Supported answers include citations such as `[University_Academic_Handbook.pdf, Page 1]`.
 
-Uploads are saved under `data/documents/`. The embedding model (`all-MiniLM-L6-v2`) is downloaded locally on first indexing. The generated FAISS index and chunk metadata are saved under `data/faiss_index/` and are excluded from Git; re-index after cloning or after changing PDFs.
+Uploads are saved under `data/documents/`. The embedding model (`all-MiniLM-L6-v2`, run through FastEmbed/ONNX so PyTorch is not needed) is downloaded locally on first indexing. If no index exists when the app starts, it is built automatically from the PDFs in `data/documents/`. The generated FAISS index and chunk metadata are saved under `data/faiss_index/` and are excluded from Git; re-index after cloning or after changing PDFs.
 
 ### Database and watchlist
 

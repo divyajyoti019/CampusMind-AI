@@ -15,6 +15,21 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 load_dotenv(PROJECT_ROOT / ".env", override=False)
 
 
+def _copy_streamlit_secrets_to_env() -> None:
+    """On Streamlit Community Cloud, keys live in st.secrets; expose them as env vars."""
+    try:
+        import streamlit as st
+
+        for name in ("GEMINI_API_KEY", "GEMINI_MODEL"):
+            if not os.getenv(name) and name in st.secrets:
+                os.environ[name] = str(st.secrets[name])
+    except Exception:  # no secrets file or Streamlit not installed: use env/.env only
+        pass
+
+
+_copy_streamlit_secrets_to_env()
+
+
 @dataclass(frozen=True)
 class Settings:
     """Application paths, model identifiers, and safety/retrieval thresholds."""
